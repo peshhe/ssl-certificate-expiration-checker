@@ -20,4 +20,4 @@ jobs:
       - name: Run the Certificate Checker script here
         run: |
           SLACK_WEBHOOK_URL=${{ secrets.SLACK_CERTIFICATE_CHECKER_WEBHOOK_URL}} \
-          ./certificate-check-container/certificate-checker.sh
+          ./certificate-checker.sh
