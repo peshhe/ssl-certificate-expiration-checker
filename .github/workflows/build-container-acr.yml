@@ -1,0 +1,66 @@
+name: ACR & ACI - Build, Push and Deploy Docker Image
+
+on:
+  # pull_request:
+  #   branches: [ 'dev', 'prod' ]
+  #   types:
+  #     - closed
+
+  workflow_dispatch: # Manual triger
+
+
+env:
+  ACI_NAME: "cert-check-${{ github.run_id }}"
+
+
+jobs:
+  build-and-deploy:
+    name: Build, Push & Deploy Docker Image to Azure
+    runs-on: ubuntu-latest
+    # Starts only if the PR is merged OR if triggered manually
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Login to Azure via Service Principal
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }} # In JSON format
+
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: ${{ secrets.REGISTRY_URL }}
+
+      - name: Build and push Docker image to ACR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.REGISTRY_URL }}/${{ github.event.repository.name }}-${{ github.ref_name }}-app:${{ github.sha }}
+
+      - name: Deploy image to Azure Container Instance
+        run: |
+          az container create \
+          --resource-group ${{ vars.RESOURCE_GROUP }} \
+          --name ${{ env.ACI_NAME }} \
+          --image ${{ secrets.REGISTRY_URL }}/${{ github.event.repository.name }}-${{ github.ref_name }}-app:${{ github.sha }} \
+          --registry-login-server ${{ secrets.REGISTRY_URL }} \
+          --registry-username ${{ secrets.REGISTRY_USERNAME }} \
+          --registry-password ${{ secrets.REGISTRY_PASSWORD }} \
+          --os-type Linux \
+          --cpu 1 \
+          --memory 1 \
+          --secure-environment-variables "SLACK_WEBHOOK_URL=${{ secrets.SLACK_CERTIFICATE_CHECKER_WEBHOOK }}" \
+          --restart-policy Never \
+          --verbose
+
+      - name: Stop the Azure Container Instance # Can also be added a step to delete the ACI
+        run: |
+          az container stop \
+          --resource-group ${{ vars.RESOURCE_GROUP }} \
+          --name ${{ env.ACI_NAME }}
