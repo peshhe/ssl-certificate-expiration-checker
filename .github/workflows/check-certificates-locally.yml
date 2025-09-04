@@ -1,0 +1,23 @@
+name: Check SSL Certificates on GitHub Actions runner
+
+on:
+  workflow_dispatch: # Manual triger
+
+  schedule:
+    - cron: '0 1 * * 0' # At 01:00 on Sunday
+    - cron: '30 14 * * *' # At 14:30 every day
+
+
+jobs:
+  local-run:
+    name: Run Cert Checker script
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Run the Certificate Checker script here
+        run: |
+          SLACK_WEBHOOK_URL=${{ secrets.SLACK_CERTIFICATE_CHECKER_WEBHOOK_URL}} \
+          ./certificate-check-container/certificate-checker.sh
