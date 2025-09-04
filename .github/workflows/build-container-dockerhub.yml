@@ -1,0 +1,34 @@
+name: Docker Hub - Build and Push Docker Image
+
+on:
+  pull_request:
+    branches: [ 'dev', 'prod' ]
+    types:
+      - closed
+
+  workflow_dispatch: # Manual triger
+
+
+jobs:
+  build-and-deploy:
+    name: Build and Push Docker image to Docker Hub
+    runs-on: ubuntu-latest
+    # Starts only if the PR is merged OR if triggered manually
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ssl-cert-checker:gha-sha-${{ github.sha }}
